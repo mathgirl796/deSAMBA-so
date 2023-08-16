@@ -20,7 +20,7 @@ Program:   build_index
                                 sequences[.fa], storing them in one file.
                                 When you have more than one files,	
                                 combined them into one.Make sure all genomes start as following format:
-				">tid|285013|ref|NC_006268.1" to running analysis based on taxnomy
+				"\>tid\|285013\|ref\|NC_006268.1" to running analysis based on taxnomy
 				like "285013".
     <index_dir>   FOLDER  folder to store index.
 "
@@ -41,7 +41,7 @@ if [ $ref_file == 'all' ]
  then
  	DOWNLOAD=$index_dir/download
 	#download bacteria/viral/archaea
-	mkdir "$DOWNLOAD"
+	mkdir -p "$DOWNLOAD"
 	bash ./download  -P 10 -o $DOWNLOAD -d viral refseq
 	bash ./download  -P 10 -o $DOWNLOAD -d archaea refseq
 	bash ./download  -P 10 -o $DOWNLOAD -d bacteria refseq
@@ -59,7 +59,7 @@ if [ $ref_file == 'viral' ]
  then
  	DOWNLOAD=$index_dir/download
 	#download bacteria/viral/archaea
-	mkdir "$DOWNLOAD"
+	mkdir -p "$DOWNLOAD"
 	bash ./download  -P 10 -o $DOWNLOAD -d viral refseq
 
 	#store all fna/fa/fastq file into wgs file
@@ -82,7 +82,7 @@ echo "Jellyfish hash size:" [$JELLYFISH_HASH_SIZE] "this will using MEM at most"
 
 #jellyfish count
 jelly_fish_dir="${index_dir}/jelly_fish"
-mkdir ${jelly_fish_dir}
+mkdir -p ${jelly_fish_dir}
 jelly_fish_prefix="${jelly_fish_dir}/mer"
 
 ./bin/jellyfish count -m $kmer_size -s $JELLYFISH_HASH_SIZE -t 8 -o ${jelly_fish_prefix} $WGS_FILE
@@ -97,10 +97,10 @@ if [ -e "${jelly_fish_prefix}_1" ]
 then
 	#echo
 	./bin/jellyfish merge -o ${index_dir}/database.jdb ${jelly_fish_prefix}*
-	rm -r ${jelly_fish_dir}
 else
 	mv ${jelly_fish_prefix}_0 ${index_dir}/database.jdb
 fi 
+rm -r ${jelly_fish_dir}
 
 #sort
 ${DE_SAMBA} kmersort -k 31 -o ${index_dir}/kmer.srt ${index_dir}/database.jdb

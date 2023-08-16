@@ -9,6 +9,15 @@
 #define SRC_IDX_H_
 #include "bwt.h"
 #include "lib/kvec.h"
+#include "lib/khash.h"
+#include "pthread.h"
+
+#define MAX_taxon_name_N 200
+typedef struct {
+	uint32_t p_tid;
+	char rank[20];
+	char name[MAX_taxon_name_N + 1];
+}TAXONOMY_rank;
 
 typedef struct{
 	char ref_name[128] ;
@@ -69,6 +78,8 @@ typedef struct
 	int 		single_base_max;//the max number of a single base in a kmer; this value are used to filter less complex kmers in pacbio reads
 }E_KMER;
 
+KHASH_MAP_INIT_INT(i2p, void*)
+
 typedef struct
 {
 	//USED ONlY in building
@@ -90,6 +101,12 @@ typedef struct
 	int 		filter_min_score;
 	int 		filter_min_score_LV3;
 	//int			strain_mode;
+
+	// duanran
+	uint64_t max_tid;
+	TAXONOMY_rank * taxonomyTree;
+	khash_t(i2p) *thread2buff;
+	pthread_mutex_t thread2buff_mutex;
 }DA_IDX;
 
 typedef struct

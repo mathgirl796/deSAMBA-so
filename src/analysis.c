@@ -1268,7 +1268,7 @@ static int cmp_count_sort(const void *a_, const void *b_){
 }
 
 //analysis
-uint32_t ana_get_tid(RST *rst, int max_tid, FILE * rst_file_srt, int *eof_, TAXONOMY_rank * taxonomyTree, int *read_len, float* coverage)
+static uint32_t ana_get_tid(RST *rst, int max_tid, FILE * rst_file_srt, int *eof_, TAXONOMY_rank * taxonomyTree, int *read_len, float* coverage)
 {
 	char old_read_name[READ_NAME_LEN];
 	uint32_t tid = 0;

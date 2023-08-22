@@ -9,6 +9,7 @@
 #include <getopt.h>
 #include "lib/utils.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <sys/time.h>
 #include "lib/kthread.h"
@@ -653,10 +654,12 @@ static int taxonTree_rank(const char *taxonomyPath,TAXONOMY_rank ** taxonomyTree
 		token = strtok(NULL,"\t|");
 		strcpy(taxonomyTree[tid].rank,token);
 	}
-	//end mark
-	taxonomyTree[1].p_tid = 0;//set the root node to be 0(instead of 1)
-	strcpy(taxonomyTree[1].rank,"root");
-	strcpy(taxonomyTree[0].rank,"CLY_FAIL");
+	// set vitural root [MAX_uint32_t] for normal tax tree
+	taxonomyTree[1].p_tid = MAX_uint32_t;//this tree's root is [1]
+	// set vitural root [MAX_uint32_t] for another tax tree, which only has a root [0] for unmapped reads
+	taxonomyTree[0].p_tid = MAX_uint32_t;
+	strcpy(taxonomyTree[0].rank,"no rank");
+	strcpy(taxonomyTree[0].name,"CLY_FAIL");
 
 	//step4 : close file
 	fclose(fp);
@@ -729,6 +732,21 @@ static int getOneSAM(FILE * SAM_file, char *buff, RST * rst)
 		rst->isClassify = 'U';
 		rst->tid = 0;
 		rst->MAPQ = 0;
+		//ignore the POS part
+		tokens = strtok(NULL,"\t");
+		//ignore MAQ part
+		tokens = strtok(NULL,"\t");
+		//ignore CIGAR
+		tokens = strtok(NULL,"\t");
+		//ignore *
+		tokens = strtok(NULL,"\t");
+		//ignore 0
+		tokens = strtok(NULL,"\t");
+		//ignore 0
+		tokens = strtok(NULL,"\t");
+		//get SEQ
+		tokens = strtok(NULL,"\t");
+		rst->read_length = strlen(tokens);
 	}
 	else{
 		rst->isClassify = 'C';
@@ -839,17 +857,21 @@ static int getOneRST(FILE * RST_file, RST * rst)
 	return 0;
 }
 
-static void ana_meta_loop_fprint(FILE * file, TAXONOMY_rank * taxonomyTree, CLY_NODE *list, uint32_t node_ID, CN_CHILD *child_list, int level, uint64_t total_read_number, bool is_base)
+static void ana_meta_loop_fprint(FILE * file, TAXONOMY_rank * taxonomyTree, CLY_NODE *list, uint32_t node_ID, CN_CHILD *child_list, int level, uint64_t total_weight, bool is_base)
 {
 	CLY_NODE *node = list + node_ID;
-	float rate =  (float)node->weight/total_read_number;
-	if (DEBUG) fprintf(stderr, "hello ana_meta_loop_fprint: %d\t%s\n", node_ID, taxonomyTree[node_ID].name);
+	if (node_ID == 0 && node->weight == 0) return; // 有时可以全部分类成功，就不用打印CLY_FAIL的情况了
+	float rate =  (float)node->weight/total_weight;
+	if (DEBUG) {
+		for (int i = 0; i < level; i ++) fprintf(stderr, "  ");
+	}
+	if (DEBUG) fprintf(stderr, "hello ana_meta_loop_fprint: %d\t%s\t%ld/%ld\n", node_ID, taxonomyTree[node_ID].name, node->weight, total_weight);
 	if(node->child_list_begin != 0)
 	{
 		uint32_t child = node->child_list_begin;
 		while(1)
 		{
-			ana_meta_loop_fprint(file, taxonomyTree, list, child_list[child].tid, child_list, level + 1, total_read_number, is_base);
+			ana_meta_loop_fprint(file, taxonomyTree, list, child_list[child].tid, child_list, level + 1, total_weight, is_base);
 			if(child_list[child].next == 0)
 				break;
 			else
@@ -858,24 +880,35 @@ static void ana_meta_loop_fprint(FILE * file, TAXONOMY_rank * taxonomyTree, CLY_
 	}
 	else // 叶节点
 	{
-		char species_type[20];
+		char species_type[20] = {0};
 		uint32_t leaf_ID = node_ID;
-		while (node_ID != 0) {
-			if (node_ID == 9606) {
-				strcpy(species_type, "human");
-				break;
+		if (leaf_ID == 0 || leaf_ID == 1) { // root or CLY_FAIL
+			strcpy(species_type, "no_match");
+		}
+		else {
+			while (node_ID != MAX_uint32_t) {
+				if (node_ID == 9606) {
+					strcpy(species_type, "human");
+					break;
+				}
+				else if (node_ID == 33208 || node_ID == 33090) {
+					strcpy(species_type, "animal_and_plant");
+					break;
+				}
+				else {
+					node_ID = taxonomyTree[node_ID].p_tid;
+				}
 			}
-			else if (node_ID == 33208 || node_ID == 33090) {
-				strcpy(species_type, "animal_and_plant");
-				break;
-			}
-			else {
-				node_ID = taxonomyTree[node_ID].p_tid;
+			if (strlen(species_type) == 0)
+			{
+				strcpy(species_type, "microbe");
 			}
 		}
-		if (node_ID == 0) strcpy(species_type, "microbe");
-		if (rate < 0.0001) strcpy(species_type, "no_match");
 		fprintf(file, "%s\t%s|%s\tnull\t%f\n", species_type, taxonomyTree[leaf_ID].name, taxonomyTree[leaf_ID].rank, rate);
+		if (DEBUG) {
+			for (int i = 0; i < level; i ++) fprintf(stderr, "  ");
+			fprintf(stderr, "%s\t%s|%s\tnull\t%f\n", species_type, taxonomyTree[leaf_ID].name, taxonomyTree[leaf_ID].rank, rate);
+		} 
 	}
 }
 
@@ -941,16 +974,16 @@ static uint32_t ana_get_tid(RST *rst, int max_tid, FILE * rst_file_srt, int *eof
 	return tid;
 }
 
-void init_buff_core(void *buff_, void *idx)
+void init_buff_core(void *buff_, void *idx, int thread_num)
 {
 	RM_buffer *buff = (RM_buffer *)buff_;
 	{ // read_classify
 		buff->read_classify_input_tmpfile = tmpfile();
 		buff->read_classify_output_tmpfile = tmpfile();
 		buff->map_opt.L_min_matching = 170;
-		buff->map_opt.thread_num = 4;
+		buff->map_opt.thread_num = thread_num;
 		buff->map_opt.max_sec_N = 5;
-		buff->map_opt.out_format = OUTPUT_MODE_SAM;
+		buff->map_opt.out_format = OUTPUT_MODE_SAM_FULL;
 		buff->map_opt.show_anchor = false;
 		buff->map_opt.outfile = buff->read_classify_output_tmpfile;
 		buff->map_opt.min_score = 64;
@@ -978,7 +1011,7 @@ void init_buff_core(void *buff_, void *idx)
 		buff->meta_analysis_dump_tmpfile = tmpfile();
 		buff->meta_analysis_output_tmpfile = tmpfile();
 		buff->getOneSAM_buff = (char *)malloc(MAX_BUFF_LEN);
-		buff->node_count = xcalloc(((DA_IDX *)idx)->max_tid, sizeof(uint32_t));
+		buff->node_count = xcalloc(((DA_IDX *)idx)->max_tid, sizeof(uint64_t));
 		buff->node_table = xcalloc(((DA_IDX *)idx)->max_tid, sizeof(CLY_NODE));
 		buff->child_list = xcalloc(((DA_IDX *)idx)->max_tid * 2, sizeof(CN_CHILD));
 		buff->sort = xmalloc(((DA_IDX *)idx)->max_tid * sizeof(COUNT_SORT));
@@ -1062,7 +1095,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 	RM_buffer *buff_ = buff;
 
 	// 重置缓冲区中的一些数据
-	memset(buff_->node_count, 0, ((DA_IDX *)idx)->max_tid * sizeof(uint32_t));
+	memset(buff_->node_count, 0, ((DA_IDX *)idx)->max_tid * sizeof(uint64_t));
 	memset(buff_->node_table, 0, ((DA_IDX *)idx)->max_tid * sizeof(CLY_NODE));
 	memset(buff_->child_list, 0, ((DA_IDX *)idx)->max_tid * sizeof(CN_CHILD) * 2);
 	memset(buff_->sort, 0, ((DA_IDX *)idx)->max_tid * sizeof(COUNT_SORT));
@@ -1084,7 +1117,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 		if (getOneSAM_rst < 0)
 			break;
 		record_num++;
-		if (record_num >= MAX_uint32_t)
+		if (record_num >= MAX_read_N)
 			break;
 		if (record_num < MIN_read_N)
 			continue;
@@ -1105,11 +1138,12 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 					temp_rst.score);
 	}
 	if (DEBUG)
-		fprintf(stderr, "end read [%d] sam\n", record_num);
+		fprintf(stderr, "end read [%ld] sam\n", record_num);
 	rewind(buff_->meta_analysis_dump_tmpfile);
 
 	// 调用deSAMBA进行数据分析
 	long int total_read_number = 0;
+	long int total_weight = 0;
 	RST rst;
 	int eof_ = 0;
 	float coverage = 0;
@@ -1127,15 +1161,14 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 	{
 		if (DEBUG)
 			fprintf(stderr, "RST:\t%s\t%c\t%d\t%d\t%d\t%d\t", rst.read_name, rst.isClassify, rst.tid, rst.read_length, rst.MAPQ, rst.score);
+		uint32_t current_read_length = rst.read_length;
 		total_read_number++;
+		total_weight += current_read_length;
 		int read_len = 0;
 		uint32_t final_tid = ana_get_tid(&rst, ((DA_IDX *)idx)->max_tid, buff_->meta_analysis_dump_tmpfile, &eof_, ((DA_IDX *)idx)->taxonomyTree, &read_len, &coverage);
-		if (final_tid > 0)
-		{
-			buff_->node_count[final_tid]++;
-		}
+		buff_->node_count[final_tid] += current_read_length; // 因为此时rst已经是下一条read的了
 		if (DEBUG)
-			fprintf(stderr, "node_count[%d]=%d\n", final_tid, buff_->node_count[final_tid]);
+			fprintf(stderr, "node_count[%d]=%ld, total_weight=%ld\n", final_tid, buff_->node_count[final_tid], total_weight);
 		if (eof_ < 0)
 			break;
 	}
@@ -1155,7 +1188,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 		buff_->sort[rst_num].tid = i;
 		buff_->sort[rst_num++].count = buff_->node_count[i];
 		if (DEBUG)
-			fprintf(stderr, "taxid: %d\tcount: %d\n", i, buff_->node_count[i]);
+			fprintf(stderr, "taxid: %d\tcount: %ld\n", i, buff_->node_count[i]);
 	}
 	qsort(buff_->sort, rst_num, sizeof(COUNT_SORT), cmp_count_sort);
 	if (DEBUG)
@@ -1167,15 +1200,17 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 	for (int i = 0; i < rst_num; i++)
 	{
 		uint32_t c_tid = buff_->sort[i].tid;
-		buff_->node_table[buff_->sort[i].tid].weight += buff_->node_count[buff_->sort[i].tid];
-		if (DEBUG)
-			fprintf(stderr, "init node_table[%d].weight to %d\n", buff_->sort[i].tid, buff_->node_count[buff_->sort[i].tid]);
 		while (1)
 		{
 			uint32_t p_tid = ((DA_IDX *)idx)->taxonomyTree[c_tid].p_tid;
-			if (p_tid < 1 || p_tid == 4294967295) // over root node
+			// if (DEBUG)
+			// 	fprintf(stderr, "c_tid:%u, p_tid:%u\n", c_tid, p_tid);
+			buff_->node_table[c_tid].weight += buff_->node_count[buff_->sort[i].tid]; // add weight for p_tid
+			if (DEBUG)
+				fprintf(stderr, "update node_table[%d].weight to %lu\n", c_tid, buff_->node_table[c_tid].weight);
+			if (p_tid == MAX_uint32_t) {
 				break;
-			buff_->node_table[p_tid].weight += buff_->node_count[buff_->sort[i].tid]; // add weight for p_tid
+			}
 			if (buff_->node_table[p_tid].child_list_begin == 0)
 			{
 				buff_->node_table[p_tid].child_list_begin = child_count++;
@@ -1192,7 +1227,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 					buff_->child_list[child_count - 1].tid = c_tid;
 				}
 			}
-			c_tid = p_tid;
+			c_tid = ((DA_IDX *)idx)->taxonomyTree[c_tid].p_tid;
 		}
 	}
 	if (DEBUG)
@@ -1201,7 +1236,8 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 
 	// 将运算结果输出到文件
 	rewind(buff_->meta_analysis_output_tmpfile);
-	ana_meta_loop_fprint(buff_->meta_analysis_output_tmpfile, ((DA_IDX *)idx)->taxonomyTree, buff_->node_table, 1, buff_->child_list, 0, total_read_number, false);
+	ana_meta_loop_fprint(buff_->meta_analysis_output_tmpfile, ((DA_IDX *)idx)->taxonomyTree, buff_->node_table, 0, buff_->child_list, 0, total_weight, false);
+	ana_meta_loop_fprint(buff_->meta_analysis_output_tmpfile, ((DA_IDX *)idx)->taxonomyTree, buff_->node_table, 1, buff_->child_list, 0, total_weight, false);
 	*output_n = ftell(buff_->meta_analysis_output_tmpfile);
 	*output = xmalloc(*output_n + 1);
 	memset(*output, 0, *output_n + 1);
@@ -1223,17 +1259,15 @@ void load_index(void **idx, const char *dirPath)
 		fprintf(stderr, "END loading index INIT\n");
 	// default parameter
 	double P_E = 0.15;
-	MAP_opt o = {170, 4, 5, OUTPUT_MODE_SAM, false, stdout, 64};
 	// load index
 	if (DEBUG)
 		fprintf(stderr, "BEGIN loading index core\n");
 	load_idx(index, dirPath);
 	if (DEBUG)
 		fprintf(stderr, "END loading index core\n");
-	(*index).filter_min_length = o.L_min_matching;
-	(*index).filter_min_score = o.min_score;
-	(*index).filter_min_score_LV3 = o.min_score + 10;
-	//(*index).strain_mode = o.strain_mode;
+	(*index).filter_min_length = 170;
+	(*index).filter_min_score = 64;
+	(*index).filter_min_score_LV3 = 64 + 10;
 	(*index).mapQ.Q_MEM = xmalloc_t(int, Q_MEM_MAX);
 	(*index).mapQ.Q_LV = (int(*)[MAX_LV_R_LEN])xmalloc(MAX_LV_WRONG * MAX_LV_R_LEN * sizeof(int));
 	calculate_MAPQ_TABLE((*index).mapQ.Q_MEM, (*index).mapQ.Q_LV, P_E, (*index).ref_bin.n * 4);
@@ -1250,36 +1284,42 @@ void load_index(void **idx, const char *dirPath)
 	*idx = index;
 }
 
-void* find_and_init_buff_for_thread_mutex(int thread_id, void *idx) {
+/**
+ * @param thread_num how many thread to use in a single read_classify
+*/
+void* find_and_init_buff_for_thread_mutex(int thread_id, void *idx, int thread_num) {
 	pthread_mutex_lock(&(((DA_IDX *)idx)->thread2buff_mutex)); ////////////////// 上锁
-
 	// 查找thread_id是否在idx的thread2buff中
 	int ret, is_missing;
 	khiter_t k;
 	k = kh_get(i2p, ((DA_IDX *)idx)->thread2buff, thread_id);
 	is_missing = (k == kh_end(((DA_IDX *)idx)->thread2buff));
-	// 如果thread_id不存在，则将其插入字典中，将其值设置为空指针，等待懒加载
+	// 如果thread_id存在，但是线程数与需要的数量不相等，则将其删除，后面重新分配缓冲区
+	if (!is_missing && ((RM_buffer*)kh_value(((DA_IDX *)idx)->thread2buff, k))->map_opt.thread_num != thread_num) {
+		free_buff_core(kh_value(((DA_IDX *)idx)->thread2buff, k));
+		kh_del(i2p, ((DA_IDX *)idx)->thread2buff, k);
+		is_missing = 1;
+	}
+	// 如果thread_id不存在，则将其插入字典中
 	if (is_missing) {
 		if (DEBUG) fprintf(stderr, "detect new thread %d, creating buff for it\n", thread_id);
 		k = kh_put(i2p, ((DA_IDX *)idx)->thread2buff, thread_id, &ret);
 		// 如果缓冲区不存在，则创建缓冲区
 		kh_value(((DA_IDX *)idx)->thread2buff, k) = xcalloc(1, sizeof(RM_buffer));
-		init_buff_core(kh_value(((DA_IDX *)idx)->thread2buff, k), idx);
+		init_buff_core(kh_value(((DA_IDX *)idx)->thread2buff, k), idx, thread_num);
 		if (DEBUG) fprintf(stderr, "done create buff for thread %d, buff is at address %p\n", thread_id, kh_value(((DA_IDX *)idx)->thread2buff, k));
 	}
-
 	pthread_mutex_unlock(&(((DA_IDX *)idx)->thread2buff_mutex)); ////////////////// 解锁
-
 	return kh_value(((DA_IDX *)idx)->thread2buff, k);
 }
 
 void read_classify(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id){
 	// 最终，取出其buff地址，执行程序
-	void *buff = find_and_init_buff_for_thread_mutex(thread_id, idx);
+	void *buff = find_and_init_buff_for_thread_mutex(thread_id, idx, 4);
 	read_classify_core(idx, input, input_n, output, output_n, buff);
 }
 
 void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id){
-	void *buff = find_and_init_buff_for_thread_mutex(thread_id, idx);
+	void *buff = find_and_init_buff_for_thread_mutex(thread_id, idx, 4);
 	meta_analysis_core(idx, input, input_n, output, output_n, buff);
 }

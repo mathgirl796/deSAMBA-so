@@ -5,7 +5,7 @@ TARGET  := deSAMBA
 TARGET_SO := libdesamba.so
   
 #compile and lib parameter
-CC      := gcc -std=c99
+CC      := gcc -std=gnu99
 LIBS    := -lm -lz -lpthread
 INCLUDE := -I ./lib
 CFLAGS  := -g -Wall -O3 $(INCLUDE)

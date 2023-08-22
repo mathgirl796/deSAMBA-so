@@ -14,7 +14,7 @@ make rebuild -C src
 mkdir bin
 mv path/to/jellyfish bin/jellyfish
 bash build-index demo/human.fa demo_index/human
-cp demo_index/*.dmp demo_index/human
+cp nodes.dmp names.dmp demo_index/human
 ```
 
 # 测试程序

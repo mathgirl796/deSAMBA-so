@@ -6,13 +6,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "lib/utils.h"
+#include "lib/desc.h"
 #include "cly.h"
 
 #define MAX_BUFF_LEN 10000000//1000K
 #define READ_NAME_LEN 100
 #define MIN_read_N 0
-#define MAX_read_N MAX_uint32_t
-#define DEBUG 1
+#define MAX_read_N MAX_uint64_t
 
 typedef struct{
 	uint32_t	tid;
@@ -49,7 +49,7 @@ typedef struct
 
 typedef struct{
 	uint32_t tid;
-	int count;
+	long int count;
 }COUNT_SORT;
 
 typedef struct {
@@ -74,7 +74,7 @@ typedef struct RM_buffer
 	FILE *meta_analysis_dump_tmpfile;
 	FILE *meta_analysis_output_tmpfile;
 	char *getOneSAM_buff;
-	uint32_t *node_count;
+	uint64_t *node_count;
 	CLY_NODE *node_table;
 	CN_CHILD *child_list;
 	COUNT_SORT *sort;

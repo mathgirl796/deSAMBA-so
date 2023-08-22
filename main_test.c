@@ -53,27 +53,28 @@ int main(int argc, char *argv[]) {
     // printf("%s", ana);
 
     // 测试文件输入api
-    // load_index_func(&idx, dirPath);
-    // read_classify_func(idx, fqPath, -1, &sam, &sam_n, 0); 
-    // meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 0);
-    // read_classify_func(idx, fqPath, -1, &sam, &sam_n, 2); 
-    // meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 2);
-    // read_classify_func(idx, fqPath, -1, &sam, &sam_n, 1); 
-    // meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 1);
-    // printf("%s", ana);
+    load_index_func(&idx, dirPath);
+    read_classify_func(idx, fqPath, -1, &sam, &sam_n, 0); 
+    meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 0);
+    read_classify_func(idx, fqPath, -1, &sam, &sam_n, 2); 
+    meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 2);
+    read_classify_func(idx, fqPath, -1, &sam, &sam_n, 1); 
+    // printf("%s", sam);
+    meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 1);
+    printf("%s", ana);
 
     // 测试内存泄漏
-    load_index_func(&idx, dirPath);
-    FILE* fq_file = fopen(fqPath, "r");
-    char *input = malloc(1000 * 1000 * 10); // 10MB
-    memset(input, 0, 1000 * 1000 * 10);
-    uint64_t input_n;
-    input_n = fread(input, 1, 1000 * 1000 * 10, fq_file);
-    for (int i = 0; i < 60000000; ++i) {
-        read_classify_func(idx, input, input_n, &sam, &sam_n, i % 3); // 模拟3个线程池
-        meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, i % 3);
-        printf("%d\t%s", i, ana);
-        free(sam);
-        free(ana);
-    }
+    // load_index_func(&idx, dirPath);
+    // FILE* fq_file = fopen(fqPath, "r");
+    // char *input = malloc(1000 * 1000 * 10); // 10MB
+    // memset(input, 0, 1000 * 1000 * 10);
+    // uint64_t input_n;
+    // input_n = fread(input, 1, 1000 * 1000 * 10, fq_file);
+    // for (int i = 0; i < 60000000; ++i) {
+    //     read_classify_func(idx, input, input_n, &sam, &sam_n, i % 3); // 模拟3个线程池
+    //     meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, i % 3);
+    //     printf("%d\t%s", i, ana);
+    //     free(sam);
+    //     free(ana);
+    // }
 }

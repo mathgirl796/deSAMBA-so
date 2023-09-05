@@ -24,8 +24,8 @@ int main(int argc, char *argv[]) {
     // 加载库函数
     void *handle = dlopen(soPath, RTLD_LAZY);
     void (*load_index_func)(void **idx, const char *dirPath) = dlsym(handle, "load_index");
-    void (*read_classify_func)(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id) = dlsym(handle, "read_classify");
-    void (*meta_analysis_func)(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id) = dlsym(handle, "meta_analysis");
+    void (*read_classify_func)(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id, int thread_num) = dlsym(handle, "read_classify");
+    void (*meta_analysis_func)(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id, int flag) = dlsym(handle, "meta_analysis");
 
     // 测试字符串输入api
     // load_index_func(&idx, dirPath);
@@ -54,13 +54,12 @@ int main(int argc, char *argv[]) {
 
     // 测试文件输入api
     load_index_func(&idx, dirPath);
-    read_classify_func(idx, fqPath, -1, &sam, &sam_n, 0); 
-    meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 0);
-    read_classify_func(idx, fqPath, -1, &sam, &sam_n, 2); 
-    meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 2);
-    read_classify_func(idx, fqPath, -1, &sam, &sam_n, 1); 
-    // printf("%s", sam);
-    meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 1);
+    read_classify_func(idx, fqPath, -1, &sam, &sam_n, 0, 4); 
+    // meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 0);
+    read_classify_func(idx, fqPath, -1, &sam, &sam_n, 0, 4); 
+    // meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 2);
+    read_classify_func(idx, fqPath, -1, &sam, &sam_n, 0, 8); 
+    meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 0, 1);
     printf("%s", ana);
 
     // 测试内存泄漏

@@ -860,7 +860,7 @@ static int getOneRST(FILE * RST_file, RST * rst)
 static void ana_meta_loop_fprint(FILE * file, TAXONOMY_rank * taxonomyTree, CLY_NODE *list, uint32_t node_ID, CN_CHILD *child_list, int level, uint64_t total_weight, bool is_base)
 {
 	CLY_NODE *node = list + node_ID;
-	if (node->weight == 0) return; // 有时可以全部分类成功或全部分类失败
+	if (node->weight == 0) return; // 剪枝
 	float rate =  (float)node->weight/total_weight;
 	if (DEBUG) {
 		for (int i = 0; i < level; i ++) fprintf(stderr, "  ");
@@ -976,6 +976,7 @@ static uint32_t ana_get_tid(RST *rst, int max_tid, FILE * rst_file_srt, int *eof
 
 void init_buff_core(void *buff_, void *idx, int thread_num)
 {
+
 	RM_buffer *buff = (RM_buffer *)buff_;
 	{ // read_classify
 		buff->read_classify_input_tmpfile = tmpfile();
@@ -1090,7 +1091,7 @@ void read_classify_core(void *idx, char *input, uint64_t input_n, char **output,
 	}
 }
 
-void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, void *buff)
+void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, void *buff, int flag)
 {
 	RM_buffer *buff_ = buff;
 
@@ -1162,11 +1163,12 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 		if (DEBUG)
 			fprintf(stderr, "RST:\t%s\t%c\t%d\t%d\t%d\t%d\t", rst.read_name, rst.isClassify, rst.tid, rst.read_length, rst.MAPQ, rst.score);
 		uint32_t current_read_length = rst.read_length;
+		uint32_t current_weight = ((flag & 0x1) == 0) ? 1 : current_read_length;
 		total_read_number++;
-		total_weight += current_read_length;
+		total_weight += current_weight;
 		int read_len = 0;
 		uint32_t final_tid = ana_get_tid(&rst, ((DA_IDX *)idx)->max_tid, buff_->meta_analysis_dump_tmpfile, &eof_, ((DA_IDX *)idx)->taxonomyTree, &read_len, &coverage);
-		buff_->node_count[final_tid] += current_read_length; // 因为此时rst已经是下一条read的了
+		buff_->node_count[final_tid] += current_weight; // 因为此时rst已经是下一条read的了
 		if (DEBUG)
 			fprintf(stderr, "node_count[%d]=%ld, total_weight=%ld\n", final_tid, buff_->node_count[final_tid], total_weight);
 		if (eof_ < 0)
@@ -1285,7 +1287,7 @@ void load_index(void **idx, const char *dirPath)
 }
 
 /**
- * @param thread_num how many thread to use in a single read_classify. '-1' means not change
+ * @param thread_num how many thread to use in a single read_classify. 
 */
 void* find_and_init_buff_for_thread_mutex(int thread_id, void *idx, int thread_num) {
 	pthread_mutex_lock(&(((DA_IDX *)idx)->thread2buff_mutex)); ////////////////// 上锁
@@ -1295,14 +1297,18 @@ void* find_and_init_buff_for_thread_mutex(int thread_id, void *idx, int thread_n
 	k = kh_get(i2p, ((DA_IDX *)idx)->thread2buff, thread_id);
 	is_missing = (k == kh_end(((DA_IDX *)idx)->thread2buff));
 	// 如果thread_id存在，但是线程数与需要的数量不相等，则将其删除，后面重新分配缓冲区
-	if (!is_missing && thread_num != -1 && ((RM_buffer*)kh_value(((DA_IDX *)idx)->thread2buff, k))->map_opt.thread_num != thread_num) {
-		free_buff_core(kh_value(((DA_IDX *)idx)->thread2buff, k));
-		kh_del(i2p, ((DA_IDX *)idx)->thread2buff, k);
-		is_missing = 1;
+	if (!is_missing && thread_num != -1) {
+		int current_thread_num = ((RM_buffer*)kh_value(((DA_IDX *)idx)->thread2buff, k))->map_opt.thread_num;
+		if (current_thread_num != thread_num) {
+			if (DEBUG) fprintf(stderr, "delete buff of %d with %d sub-threads because of sub-thread-num change\n", thread_id, current_thread_num);
+			free_buff_core(kh_value(((DA_IDX *)idx)->thread2buff, k));
+			kh_del(i2p, ((DA_IDX *)idx)->thread2buff, k);
+			is_missing = 1;
+		}
 	}
 	// 如果thread_id不存在，则将其插入字典中
 	if (is_missing) {
-		if (DEBUG) fprintf(stderr, "detect new thread %d, creating buff for it\n", thread_id);
+		if (DEBUG) fprintf(stderr, "create buff for thread %d with %d sub-threads, creating buff for it\n", thread_id, thread_num);
 		k = kh_put(i2p, ((DA_IDX *)idx)->thread2buff, thread_id, &ret);
 		// 如果缓冲区不存在，则创建缓冲区
 		kh_value(((DA_IDX *)idx)->thread2buff, k) = xcalloc(1, sizeof(RM_buffer));
@@ -1313,13 +1319,13 @@ void* find_and_init_buff_for_thread_mutex(int thread_id, void *idx, int thread_n
 	return kh_value(((DA_IDX *)idx)->thread2buff, k);
 }
 
-void read_classify(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id){
+void read_classify(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id, int thread_num){
 	// 最终，取出其buff地址，执行程序
-	void *buff = find_and_init_buff_for_thread_mutex(thread_id, idx, 4); // TODO: add to desamba.h interface
+	void *buff = find_and_init_buff_for_thread_mutex(thread_id, idx, thread_num); // TODO: add to desamba.h interface
 	read_classify_core(idx, input, input_n, output, output_n, buff);
 }
 
-void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id){
+void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id, int flag){
 	void *buff = find_and_init_buff_for_thread_mutex(thread_id, idx, -1);
-	meta_analysis_core(idx, input, input_n, output, output_n, buff);
+	meta_analysis_core(idx, input, input_n, output, output_n, buff, flag);
 }

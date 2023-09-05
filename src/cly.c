@@ -11,7 +11,6 @@
 #include <string.h>
 
 #include "bwt.h"
-#include "lib/ksw/ksw2.h"
 
 //same as Bit, but all UNKNOWN characters are used as 'C'
 uint8_t CLY_Bit[] =

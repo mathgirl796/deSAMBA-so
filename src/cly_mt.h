@@ -78,6 +78,7 @@ typedef struct RM_buffer
 	CLY_NODE *node_table;
 	CN_CHILD *child_list;
 	COUNT_SORT *sort;
+
 } RM_buffer;
 
 #endif

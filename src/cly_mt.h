@@ -59,6 +59,7 @@ typedef struct {
 	uint32_t 	read_length;
 	uint8_t 	MAPQ;
 	uint32_t 	score;
+	char*		seq;
 }RST;//24byte
 
 typedef struct RM_buffer

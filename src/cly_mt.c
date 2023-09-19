@@ -21,6 +21,7 @@
 #include "cly_mt.h"
 #define N_NEEDED 5000
 #define MAX_read_size 10000000 // 10M
+#define MAX_HUMAN_SNAPSHOT_LEN (64 * 1024)
 uint64_t total_sequences = 0;
 
 
@@ -688,6 +689,7 @@ static int taxonTree_rank(const char *taxonomyPath,TAXONOMY_rank ** taxonomyTree
 	fclose(fp);
 
 	// return
+	free(line);
 	*taxonomyTree_ = taxonomyTree;
 	return max_tid;
 }
@@ -728,6 +730,7 @@ static int getOneSAM(FILE * SAM_file, char *buff, RST * rst)
 	rst->read_length = 0;
 	rst->score = 0;
 	tokens = strtok(NULL,"\t");
+	char* seq_tokens;
 	if(tokens[0] == '*') {
 		rst->isClassify = 'U';
 		rst->tid = 0;
@@ -746,7 +749,7 @@ static int getOneSAM(FILE * SAM_file, char *buff, RST * rst)
 		tokens = strtok(NULL,"\t");
 		//get SEQ
 		tokens = strtok(NULL,"\t");
-		rst->read_length = strlen(tokens);
+		seq_tokens = tokens;
 	}
 	else{
 		rst->isClassify = 'C';
@@ -758,7 +761,7 @@ static int getOneSAM(FILE * SAM_file, char *buff, RST * rst)
 		rst->MAPQ = strtoul(tokens,NULL,10);
 		//get CIGAR
 		tokens = strtok(NULL,"\t");
-		char * CIGAR = tokens;
+		// char * CIGAR = tokens;
 		//get *
 		tokens = strtok(NULL,"\t");
 		//get 0
@@ -767,6 +770,7 @@ static int getOneSAM(FILE * SAM_file, char *buff, RST * rst)
 		tokens = strtok(NULL,"\t");
 		//get SEQ
 		tokens = strtok(NULL,"\t");
+		seq_tokens = tokens;
 		//get QUAL
 		tokens = strtok(NULL,"\t");
 		//with other label
@@ -803,27 +807,31 @@ static int getOneSAM(FILE * SAM_file, char *buff, RST * rst)
 			rst->tid = strtoul(ref_tokens,NULL,10);
 			//get read length
 		}
-		//for the read length part
-		{
-			int read_len = 0;
-			int type_len = 0;
-			while(1)
-			{
-				char c_char = *CIGAR++;
-				if(c_char == 0)
-					break;
-				if(c_char <= '9' && c_char >= '0')
-					type_len = (type_len * 10) + (c_char - '0');
-				else
-				{
-					if(c_char == 'M' || c_char == 'I' || c_char == 'S' || c_char == 'X')
-						read_len += type_len;
-					type_len = 0;
-				}
-			}
-			rst->read_length = read_len;
-		}
+		// //for the read length part
+		// {
+		// 	int read_len = 0;
+		// 	int type_len = 0;
+		// 	while(1)
+		// 	{
+		// 		char c_char = *CIGAR++;
+		// 		if(c_char == 0)
+		// 			break;
+		// 		if(c_char <= '9' && c_char >= '0')
+		// 			type_len = (type_len * 10) + (c_char - '0');
+		// 		else
+		// 		{
+		// 			if(c_char == 'M' || c_char == 'I' || c_char == 'S' || c_char == 'X')
+		// 				read_len += type_len;
+		// 			type_len = 0;
+		// 		}
+		// 	}
+		// 	rst->read_length = read_len;
+		// }
 	}
+	rst->read_length = strlen(seq_tokens);
+	rst->seq = xmalloc(rst->read_length + 1);
+	strcpy(rst->seq, seq_tokens);
+	rst->seq[rst->read_length] = 0;
 	return 0;
 }
 
@@ -1080,7 +1088,7 @@ void read_classify_core(void *idx, char *input, uint64_t input_n, char **output,
 	*output = xmalloc(*output_n + 1);
 	memset(*output, 0, *output_n + 1);
 	rewind(buff_->read_classify_output_tmpfile);
-	xread(*output, *output_n, 1, buff_->read_classify_output_tmpfile);
+	xread(*output, 1, *output_n, buff_->read_classify_output_tmpfile);
 
 	// 释放必要的内存和文件
 	ks_destroy(buff_->classify_share_data._fp);
@@ -1112,6 +1120,9 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 	if (DEBUG)
 		fprintf(stderr, "begin read sam\n");
 	rewind(buff_->meta_analysis_dump_tmpfile);
+
+	rewind(buff_->meta_analysis_output_tmpfile); // 收集人类序列
+
 	while (1)
 	{
 		int getOneSAM_rst = getOneSAM(buff_->meta_analysis_input_tmpfile, buff_->getOneSAM_buff, &temp_rst);
@@ -1122,6 +1133,10 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 			break;
 		if (record_num < MIN_read_N)
 			continue;
+		if (temp_rst.tid == 9606 || temp_rst.tid == 63221 || temp_rst.tid == 741158) {
+			fprintf(buff_->meta_analysis_output_tmpfile, "%s", temp_rst.seq);
+		}
+		free(temp_rst.seq);
 		fprintf(buff_->meta_analysis_dump_tmpfile, "%s\t%c\t%d\t%d\t%d\t%d\n",
 				temp_rst.read_name,
 				temp_rst.isClassify,
@@ -1130,7 +1145,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 				temp_rst.MAPQ,
 				temp_rst.score);
 		if (DEBUG)
-			fprintf(stderr, "SAM:\t%s\t%c\t%d\t%d\t%d\t%d\n",
+			fprintf(stderr, "getOneSAM:\t%s\t%c\t%d\t%d\t%d\t%d\n",
 					temp_rst.read_name,
 					temp_rst.isClassify,
 					temp_rst.tid,
@@ -1138,8 +1153,8 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 					temp_rst.MAPQ,
 					temp_rst.score);
 	}
-	if (DEBUG)
-		fprintf(stderr, "end read [%ld] sam\n", record_num);
+	if (DEBUG) fprintf(stderr, "end read [%ld] sam, find [%ld] human bases\n", record_num, ftell(buff_->meta_analysis_output_tmpfile));
+	fprintf(buff_->meta_analysis_output_tmpfile, "\n");
 	rewind(buff_->meta_analysis_dump_tmpfile);
 
 	// 调用deSAMBA进行数据分析
@@ -1163,7 +1178,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 		if (DEBUG)
 			fprintf(stderr, "RST:\t%s\t%c\t%d\t%d\t%d\t%d\t", rst.read_name, rst.isClassify, rst.tid, rst.read_length, rst.MAPQ, rst.score);
 		uint32_t current_read_length = rst.read_length;
-		uint32_t current_weight = ((flag & 0x1) == 0) ? 1 : current_read_length;
+		uint32_t current_weight = ((flag & 0x1) == 0) ? 1 : current_read_length; // 选择按read条数统计碱基数量统计
 		total_read_number++;
 		total_weight += current_weight;
 		int read_len = 0;
@@ -1236,8 +1251,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 		fprintf(stderr, "end calculate middle nodes\n");
 
 
-	// 将运算结果输出到文件
-	rewind(buff_->meta_analysis_output_tmpfile);
+	// 格式化运算结果
 	ana_meta_loop_fprint(buff_->meta_analysis_output_tmpfile, ((DA_IDX *)idx)->taxonomyTree, buff_->node_table, 0, buff_->child_list, 0, total_weight, false);
 	ana_meta_loop_fprint(buff_->meta_analysis_output_tmpfile, ((DA_IDX *)idx)->taxonomyTree, buff_->node_table, 1, buff_->child_list, 0, total_weight, false);
 	*output_n = ftell(buff_->meta_analysis_output_tmpfile);
@@ -1300,7 +1314,7 @@ void* find_and_init_buff_for_thread_mutex(int thread_id, void *idx, int thread_n
 	if (!is_missing && thread_num != -1) {
 		int current_thread_num = ((RM_buffer*)kh_value(((DA_IDX *)idx)->thread2buff, k))->map_opt.thread_num;
 		if (current_thread_num != thread_num) {
-			if (DEBUG) fprintf(stderr, "delete buff of %d with %d sub-threads because of sub-thread-num change\n", thread_id, current_thread_num);
+			if (DEBUG) fprintf(stderr, "delete buff of thread %d with %d sub-threads because of sub-thread-num change\n", thread_id, current_thread_num);
 			free_buff_core(kh_value(((DA_IDX *)idx)->thread2buff, k));
 			kh_del(i2p, ((DA_IDX *)idx)->thread2buff, k);
 			is_missing = 1;
@@ -1320,12 +1334,89 @@ void* find_and_init_buff_for_thread_mutex(int thread_id, void *idx, int thread_n
 }
 
 void read_classify(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id, int thread_num){
-	// 最终，取出其buff地址，执行程序
+	if (input_n == 0) {
+		*output_n = 0;
+		return;
+	}
 	void *buff = find_and_init_buff_for_thread_mutex(thread_id, idx, thread_num); // TODO: add to desamba.h interface
 	read_classify_core(idx, input, input_n, output, output_n, buff);
 }
 
-void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id, int flag){
+typedef struct {
+	char type[256];
+	char species[256];
+	char tech[256];
+	float rate;
+} MetaRST;
+int cmp_MetaRST(const void *a,const void *b) {
+	if (((MetaRST*)a)->rate > ((MetaRST*)b)->rate) return -1;
+	else if (((MetaRST*)a)->rate < ((MetaRST*)b)->rate) return 1;
+	else return 0;
+}
+void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id, int flag, uint64_t max_snap_shot_len, char **human_snapshot, uint64_t *human_snapshot_n)
+{
+	*human_snapshot = xmalloc(max_snap_shot_len + 1);
+	memset(*human_snapshot, 0, max_snap_shot_len + 1);
+
+	if (input_n == 0) {
+		*output_n = 0;
+		*human_snapshot_n = 0;
+		return;
+	}
+
 	void *buff = find_and_init_buff_for_thread_mutex(thread_id, idx, -1);
 	meta_analysis_core(idx, input, input_n, output, output_n, buff, flag);
+
+	char *cursor = *output;
+	if (cursor[0] == '\n') { // 第一行：快照.
+		strncpy(*human_snapshot, "", max_snap_shot_len);
+		cursor += 1;
+	}
+	else {
+		char *rst_line = strtok(cursor, "\n");
+		strncpy(*human_snapshot, rst_line, max_snap_shot_len);
+		*human_snapshot_n = strlen(*human_snapshot);
+		cursor += *human_snapshot_n + 1;
+	}
+
+	kvec_t(MetaRST) results;
+	kv_init(results);
+	float no_match_rate = 0;
+	while(1) { // 其他行：转换格式
+		char *rst_line = strtok(cursor, "\n");
+		if (rst_line == NULL) break;
+		cursor += strlen(rst_line) + 1;
+
+		MetaRST rst;
+		sscanf(rst_line, "%[^\t]\t%[^\t]\t%[^\t]\t%f", rst.type, rst.species, rst.tech, &(rst.rate));
+		if (strcmp("no_match", rst.type) == 0) {
+			no_match_rate += rst.rate;
+		}
+		else {
+			kv_push(MetaRST, results, rst);
+		}
+	}
+	if (no_match_rate > 0.95) {
+		sprintf(*output, "no_match\tnull|null\tnull\t0\n");
+		*output_n = strlen(*output);
+		return;
+	}
+	else {
+		// 归一化
+		for (long i = 0; i < kv_size(results); ++i) {
+			kv_A(results, i).rate = kv_A(results, i).rate / (1 - no_match_rate);
+		}
+		// 排序
+		qsort(results.a, results.n, sizeof(MetaRST), cmp_MetaRST);
+		*output_n = 0;
+		for (long i = 0; i < kv_size(results); ++i) {
+			MetaRST rst = kv_A(results, i);
+			if ((i < 3) || (strcmp("human", rst.type) == 0 && rst.rate > 0.05)) {
+				sprintf(*output + *output_n, "%s\t%s\t%s\t%f\n", rst.type, rst.species, rst.tech, rst.rate);
+				*output_n = strlen(*output);
+			}
+		}
+	}
+
+	kv_destroy(results);
 }

@@ -1,9 +1,9 @@
 .vscode
-bin
-demo
-demo_index
+bin/
+demo/
+demo_index/
 main_test
 rsync_to_2h.sh
 test
-private
+private/
 *.o

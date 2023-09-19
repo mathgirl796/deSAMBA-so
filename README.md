@@ -19,7 +19,7 @@ cp nodes.dmp names.dmp demo_index/human
 
 # 测试程序
 ```bash
-gcc main_test.c -o main_test && ./main_test bin/libdesamba.so demo_index/human demo/human.fq && rm ./main_test
+gcc main_test.c -o main_test && ./main_test bin/libdesamba.so demo_index/join demo/test1.fq
 ```
 
 # 测试deSAMBA

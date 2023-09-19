@@ -36,17 +36,17 @@ int main(int argc, char *argv[])
         load_index_func(&idx, dirPath);
         read_classify_func(idx, fqPath, -1, &sam, &sam_n, 0, 4);
         meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 0, META_USE_BASE_NUM, 64, &human_snapshot, &human_snapshot_n);
-        fprintf(stderr, "<SOS>%s<EOS>", ana);
-        fprintf(stderr, "<SOS>%lu-%s<EOS>", strlen(human_snapshot), human_snapshot);
+        fprintf(stderr, "<SOS>%s<EOS>\n", ana);
+        fprintf(stderr, "<SOS>%lu-%s<EOS>\n", strlen(human_snapshot), human_snapshot);
     }
 
     // 测试内存泄漏
-    if (1)
+    if (0)
     {
         for (int i = 0; i < 60000000; ++i)
         {
             read_classify_func(idx, fqPath, -1, &sam, &sam_n, i % 3, 4); // 模拟3个线程池
-            meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, i % 3, META_USE_BASE_NUM, 64, &human_snapshot, &human_snapshot_n);
+            meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, i % 3, META_USE_BASE_NUM, 12, &human_snapshot, &human_snapshot_n);
             printf("%d\t%s", i, ana);
             free(sam);
             free(ana);

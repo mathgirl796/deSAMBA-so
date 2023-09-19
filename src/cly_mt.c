@@ -1374,9 +1374,12 @@ void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint
 	}
 	else {
 		char *rst_line = strtok(cursor, "\n");
+		if (DEBUG) fprintf(stderr, "parse human_base: %s\n", rst_line);
 		strncpy(*human_snapshot, rst_line, max_snap_shot_len);
+		if (DEBUG) fprintf(stderr, "      human_base: %s\n", *human_snapshot);
 		*human_snapshot_n = strlen(*human_snapshot);
-		cursor += *human_snapshot_n + 1;
+		cursor += strlen(rst_line) + 1;
+		// cursor += strlen(*human_snapshot) + 1;
 	}
 
 	kvec_t(MetaRST) results;
@@ -1385,10 +1388,12 @@ void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint
 	while(1) { // 其他行：转换格式
 		char *rst_line = strtok(cursor, "\n");
 		if (rst_line == NULL) break;
+		if (DEBUG) fprintf(stderr, "parse line: %s\n", rst_line);
 		cursor += strlen(rst_line) + 1;
 
 		MetaRST rst;
 		sscanf(rst_line, "%[^\t]\t%[^\t]\t%[^\t]\t%f", rst.type, rst.species, rst.tech, &(rst.rate));
+		if (DEBUG) fprintf(stderr, "      line: %s\t%s\t%s\t%f\n", rst.type, rst.species, rst.tech, rst.rate);
 		if (strcmp("no_match", rst.type) == 0) {
 			no_match_rate += rst.rate;
 		}

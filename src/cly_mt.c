@@ -870,10 +870,10 @@ static void ana_meta_loop_fprint(FILE * file, TAXONOMY_rank * taxonomyTree, CLY_
 	CLY_NODE *node = list + node_ID;
 	if (node->weight == 0) return; // 剪枝
 	float rate =  (float)node->weight/total_weight;
-	if (DEBUG) {
-		for (int i = 0; i < level; i ++) fprintf(stderr, "  ");
-	}
-	if (DEBUG) fprintf(stderr, "hello ana_meta_loop_fprint: %d\t%s\t%ld/%ld\n", node_ID, taxonomyTree[node_ID].name, node->weight, total_weight);
+	// if (DEBUG) {
+	// 	for (int i = 0; i < level; i ++) fprintf(stderr, "  ");
+	// }
+	// if (DEBUG) fprintf(stderr, "hello ana_meta_loop_fprint: %d\t%s\t%ld/%ld\n", node_ID, taxonomyTree[node_ID].name, node->weight, total_weight);
 	if(node->child_list_begin != 0)
 	{
 		uint32_t child = node->child_list_begin;
@@ -1144,14 +1144,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 				temp_rst.read_length,
 				temp_rst.MAPQ,
 				temp_rst.score);
-		if (DEBUG)
-			fprintf(stderr, "getOneSAM:\t%s\t%c\t%d\t%d\t%d\t%d\n",
-					temp_rst.read_name,
-					temp_rst.isClassify,
-					temp_rst.tid,
-					temp_rst.read_length,
-					temp_rst.MAPQ,
-					temp_rst.score);
+		// if (DEBUG) fprintf(stderr, "getOneSAM:\t%s\t%c\t%d\t%d\t%d\t%d\n", temp_rst.read_name, temp_rst.isClassify, temp_rst.tid, temp_rst.read_length, temp_rst.MAPQ, temp_rst.score);
 	}
 	if (DEBUG) fprintf(stderr, "end read [%ld] sam, find [%ld] human bases\n", record_num, ftell(buff_->meta_analysis_output_tmpfile));
 	fprintf(buff_->meta_analysis_output_tmpfile, "\n");
@@ -1175,8 +1168,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 	}
 	while (1)
 	{
-		if (DEBUG)
-			fprintf(stderr, "RST:\t%s\t%c\t%d\t%d\t%d\t%d\t", rst.read_name, rst.isClassify, rst.tid, rst.read_length, rst.MAPQ, rst.score);
+		// if (DEBUG) fprintf(stderr, "RST:\t%s\t%c\t%d\t%d\t%d\t%d\t", rst.read_name, rst.isClassify, rst.tid, rst.read_length, rst.MAPQ, rst.score);
 		uint32_t current_read_length = rst.read_length;
 		uint32_t current_weight = ((flag & 0x1) == 0) ? 1 : current_read_length; // 选择按read条数统计碱基数量统计
 		total_read_number++;
@@ -1184,8 +1176,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 		int read_len = 0;
 		uint32_t final_tid = ana_get_tid(&rst, ((DA_IDX *)idx)->max_tid, buff_->meta_analysis_dump_tmpfile, &eof_, ((DA_IDX *)idx)->taxonomyTree, &read_len, &coverage);
 		buff_->node_count[final_tid] += current_weight; // 因为此时rst已经是下一条read的了
-		if (DEBUG)
-			fprintf(stderr, "node_count[%d]=%ld, total_weight=%ld\n", final_tid, buff_->node_count[final_tid], total_weight);
+		// if (DEBUG) fprintf(stderr, "node_count[%d]=%ld, total_weight=%ld\n", final_tid, buff_->node_count[final_tid], total_weight);
 		if (eof_ < 0)
 			break;
 	}
@@ -1204,8 +1195,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 			continue;
 		buff_->sort[rst_num].tid = i;
 		buff_->sort[rst_num++].count = buff_->node_count[i];
-		if (DEBUG)
-			fprintf(stderr, "taxid: %d\tcount: %ld\n", i, buff_->node_count[i]);
+		if (DEBUG) fprintf(stderr, "taxid: %d\tcount: %ld\n", i, buff_->node_count[i]);
 	}
 	qsort(buff_->sort, rst_num, sizeof(COUNT_SORT), cmp_count_sort);
 	if (DEBUG)
@@ -1220,11 +1210,9 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 		while (1)
 		{
 			uint32_t p_tid = ((DA_IDX *)idx)->taxonomyTree[c_tid].p_tid;
-			// if (DEBUG)
-			// 	fprintf(stderr, "c_tid:%u, p_tid:%u\n", c_tid, p_tid);
+			// if (DEBUG) fprintf(stderr, "c_tid:%u, p_tid:%u\n", c_tid, p_tid);
 			buff_->node_table[c_tid].weight += buff_->node_count[buff_->sort[i].tid]; // add weight for p_tid
-			if (DEBUG)
-				fprintf(stderr, "update node_table[%d].weight to %lu\n", c_tid, buff_->node_table[c_tid].weight);
+			// if (DEBUG) fprintf(stderr, "update node_table[%d].weight to %lu\n", c_tid, buff_->node_table[c_tid].weight);
 			if (p_tid == MAX_uint32_t) {
 				break;
 			}
@@ -1374,13 +1362,16 @@ void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint
 	}
 	else {
 		char *rst_line = strtok(cursor, "\n");
-		if (DEBUG) fprintf(stderr, "parse human_base: %s\n", rst_line);
+		// if (DEBUG) fprintf(stderr, "parse human_base: %s\n", rst_line);
 		strncpy(*human_snapshot, rst_line, max_snap_shot_len);
-		if (DEBUG) fprintf(stderr, "      human_base: %s\n", *human_snapshot);
+		// if (DEBUG) fprintf(stderr, "      human_base: %s\n", *human_snapshot);
 		*human_snapshot_n = strlen(*human_snapshot);
 		cursor += strlen(rst_line) + 1;
 		// cursor += strlen(*human_snapshot) + 1;
 	}
+
+	if (DEBUG) fprintf(stderr, "total human base num: %ld\n", cursor - *output - 1);
+	if (DEBUG) fprintf(stderr, "original meta_analysis file (item part):\n%s\n", cursor);
 
 	kvec_t(MetaRST) results;
 	kv_init(results);
@@ -1393,7 +1384,7 @@ void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint
 
 		MetaRST rst;
 		sscanf(rst_line, "%[^\t]\t%[^\t]\t%[^\t]\t%f", rst.type, rst.species, rst.tech, &(rst.rate));
-		if (DEBUG) fprintf(stderr, "      line: %s\t%s\t%s\t%f\n", rst.type, rst.species, rst.tech, rst.rate);
+		// if (DEBUG) fprintf(stderr, "      line: %s\t%s\t%s\t%f\n", rst.type, rst.species, rst.tech, rst.rate);
 		if (strcmp("no_match", rst.type) == 0) {
 			no_match_rate += rst.rate;
 		}
@@ -1401,8 +1392,10 @@ void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint
 			kv_push(MetaRST, results, rst);
 		}
 	}
+	if (DEBUG) fprintf(stderr, "After sort:\n");
 	if (no_match_rate > 0.95) {
 		sprintf(*output, "no_match\tnull|null\tnull\t0\n");
+		if (DEBUG) fprintf(stderr, "%s", "no_match\tnull|null\tnull\t0\n");
 		*output_n = strlen(*output);
 		return;
 	}
@@ -1418,6 +1411,7 @@ void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint
 			MetaRST rst = kv_A(results, i);
 			if ((i < 3) || (strcmp("human", rst.type) == 0 && rst.rate > 0.05)) {
 				sprintf(*output + *output_n, "%s\t%s\t%s\t%f\n", rst.type, rst.species, rst.tech, rst.rate);
+				if (DEBUG) fprintf(stderr, "%s\t%s\t%s\t%f\n", rst.type, rst.species, rst.tech, rst.rate);
 				*output_n = strlen(*output);
 			}
 		}

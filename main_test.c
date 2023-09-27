@@ -34,8 +34,11 @@ int main(int argc, char *argv[])
     // 测试文件输入api
     if (1) {
         load_index_func(&idx, dirPath);
-        read_classify_func(idx, fqPath, -1, &sam, &sam_n, 0, 4);
-        meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 0, META_USE_BASE_NUM, 64, &human_snapshot, &human_snapshot_n);
+        read_classify_func(idx, fqPath, -1, &sam, &sam_n, 0, 7);
+        FILE *f = fopen("private/temp.sam", "w");
+        fprintf(f, "%s", sam);
+        fclose(f);
+        meta_analysis_func(idx, sam, sam_n, &ana, &ana_n, 0, META_USE_BASE_NUM, 65536, &human_snapshot, &human_snapshot_n);
         fprintf(stderr, "<SOS>%s<EOS>\n", ana);
         fprintf(stderr, "<SOS>%lu-%s<EOS>\n", strlen(human_snapshot), human_snapshot);
     }

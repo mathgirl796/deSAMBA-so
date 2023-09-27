@@ -564,44 +564,19 @@ kvec_T(kstring_t, kstring_V)
 void print_sensei()
 {
 	fprintf(stderr, "\n");
-	fprintf(stderr, "                                 D G       . D         ; :                       \n");
-	fprintf(stderr, "                             E       D K E E E   E E .       E                   \n");
-	fprintf(stderr, "                               G E E E E . ; E E   E           D                 \n");
-	fprintf(stderr, "                       E E E E E E E E f     E . E E E E E E E                   \n");
-	fprintf(stderr, "                       E E E E K .     E K     K       K       K                 \n");
-	fprintf(stderr, "                       E E                         ; E E E E D                   \n");
-	fprintf(stderr, "                   E E E                                 E E E                   \n");
-	fprintf(stderr, "                     E                                         E                 \n");
-	fprintf(stderr, "                   E                                             E               \n");
-	fprintf(stderr, "               E D                                               K E             \n");
-	fprintf(stderr, "             E   E                                                 E             \n");
-	fprintf(stderr, "             E E                                                   E             \n");
-	fprintf(stderr, "           E                                                       E             \n");
-	fprintf(stderr, "           E E                                                     E E           \n");
-	fprintf(stderr, "         D   K                                                   K E E           \n");
-	fprintf(stderr, "         E D t       E D E L                                       E .           \n");
-	fprintf(stderr, "         E E       . E       E                                     E E E     E   \n");
-	fprintf(stderr, "     E   E E       E         E                                     E E D       D \n");
-	fprintf(stderr, "   E     E E       E                   E                           i E E E     E \n");
-	fprintf(stderr, "   j     E E       E                   E E             E   K .       E E E     E \n");
-	fprintf(stderr, " E       E K       D                   E E           E       E       E E E     D \n");
-	fprintf(stderr, " E     E E E                                                 E       K E E   E   \n");
-	fprintf(stderr, "   E   E . E                                                         f E E E     \n");
-	fprintf(stderr, "     E E E E                                                         ; K E       \n");
-	fprintf(stderr, "           E                               E                         E E E       \n");
-	fprintf(stderr, "           j                   .           E                         E E E       \n");
-	fprintf(stderr, "             K                 E           E                         .   E       \n");
-	fprintf(stderr, "             E                 i         E                         E     E       \n");
-	fprintf(stderr, "                                 E     . D                       E               \n");
-	fprintf(stderr, "               E                   E E                         . D               \n");
-	fprintf(stderr, "                 E                                           . D                 \n");
-	fprintf(stderr, "                 E                                           E                   \n");
-	fprintf(stderr, "                   E                                       E                     \n");
-	fprintf(stderr, "                     E                                   E                       \n");
-	fprintf(stderr, "                       E                               E                         \n");
-	fprintf(stderr, "                           K                       E                             \n");
-	fprintf(stderr, "                               E E             t E                               \n");
-	fprintf(stderr, "                                     . K E E E                                   \n");
+	fprintf(stderr, "░░░░░░░░░░░▄▄░░░░░░░\n");
+	fprintf(stderr, "░░░░░░░░░░░█░█░░░░░░\n");
+	fprintf(stderr, "░░░░░░░░░░░█░█░░░░░░\n");
+	fprintf(stderr, "░░░░░░░░░░█░░█░░░░░░\n");
+	fprintf(stderr, "░░░░░░░░░█░░░█░░░░░░\n");
+	fprintf(stderr, "███████▄▄█░░░██████▄\n");
+	fprintf(stderr, "▓▓▓▓▓▓█░░░░░░░░░░░░█\n");
+	fprintf(stderr, "▓▓▓▓▓▓█░░░░░░░░░░░░█\n");
+	fprintf(stderr, "▓▓▓▓▓▓█░░░░░░░░░░░░█\n");
+	fprintf(stderr, "▓▓▓▓▓▓█░░░░░░░░░░░░█\n");
+	fprintf(stderr, "▓▓▓▓▓▓█░░░░░░░░░░░░█\n");
+	fprintf(stderr, "▓▓▓▓▓▓█████░░░░░░░░█\n");
+	fprintf(stderr, "██████▀░░░▀▀██████▀░\n");
 	fprintf(stderr, "\n");
 }
 
@@ -721,58 +696,59 @@ static int getOneSAM(FILE * SAM_file, char *buff, RST * rst)
 	//{
 	//	fprintf(stderr, "Not Normal SAM.\n");
 	//}
+	char *cursor = buff;
 	//get read name
-	tokens = strtok(buff,"\t");
+	tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 	strcpy(rst->read_name,tokens);
 	//ignore flag
-	tokens = strtok(NULL,"\t");
+	tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 	//get refNAME
 	rst->read_length = 0;
 	rst->score = 0;
-	tokens = strtok(NULL,"\t");
+	tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 	char* seq_tokens;
 	if(tokens[0] == '*') {
 		rst->isClassify = 'U';
 		rst->tid = 0;
 		rst->MAPQ = 0;
 		//ignore the POS part
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		//ignore MAQ part
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		//ignore CIGAR
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		//ignore *
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		//ignore 0
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		//ignore 0
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		//get SEQ
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		seq_tokens = tokens;
 	}
 	else{
 		rst->isClassify = 'C';
 		char * ref_tokens = tokens;
 		//ignore the POS part
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		//get MAQ part
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		rst->MAPQ = strtoul(tokens,NULL,10);
 		//get CIGAR
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		// char * CIGAR = tokens;
 		//get *
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		//get 0
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		//get 0
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		//get SEQ
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		seq_tokens = tokens;
 		//get QUAL
-		tokens = strtok(NULL,"\t");
+		tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 		//with other label
 		//get AS
 		tokens = strtok(NULL,":");
@@ -782,7 +758,7 @@ static int getOneSAM(FILE * SAM_file, char *buff, RST * rst)
 			//get i
 			tokens = strtok(NULL,":");
 			//get score
-			tokens = strtok(NULL,"\t");
+			tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 			rst->score = strtoul(tokens,NULL,10);
 			tokens = strtok(NULL,":");
 			//minimap2: ms
@@ -790,20 +766,21 @@ static int getOneSAM(FILE * SAM_file, char *buff, RST * rst)
 			{
 				tokens = strtok(NULL,":");//ignore 'i'
 				//get score
-				tokens = strtok(NULL,"\t");
+				tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 				rst->score = strtoul(tokens,NULL,10);
 			}
 			tokens = strtok(NULL,":");
 			//get score
-			tokens = strtok(NULL,"\t");
+			tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 
 		}
 		//for the ref name part
 		{
 			//ignore 'tid|'
-			ref_tokens = strtok(ref_tokens,"|");
+			char *ref_cursor = ref_tokens;
+			ref_tokens = strtok(ref_tokens,"|"); ref_cursor += strlen(ref_cursor) + 1;
 			//get tid
-			ref_tokens = strtok(NULL,"|");
+			ref_tokens = strtok(ref_cursor,"|"); ref_cursor += strlen(ref_cursor) + 1;
 			rst->tid = strtoul(ref_tokens,NULL,10);
 			//get read length
 		}
@@ -843,21 +820,22 @@ static int getOneRST(FILE * RST_file, RST * rst)
 	char *tokens;
 	if(getline(&buff,&max_l,RST_file) <= 0)
 		return -1;
-	tokens = strtok(buff,"\t");
+	char *cursor = buff;
+	tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 	strcpy(rst->read_name,tokens);
-	tokens = strtok(NULL,"\t");
+	tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 	rst->isClassify = tokens[0];
-	tokens = strtok(NULL,"\t");
+	tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 	rst->tid = strtoul(tokens,NULL, 10);
-	tokens = strtok(NULL,"\t");
+	tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 	rst->read_length = strtoul(tokens,NULL, 10);
-	tokens = strtok(NULL,"\t");
+	tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 	if(tokens == 0)
 		rst->MAPQ = 0;
 	else
 		rst->MAPQ = strtoul(tokens,NULL, 10);
 
-	tokens = strtok(NULL,"\t");
+	tokens = strtok(cursor,"\t"); cursor += strlen(tokens) + 1;
 	if(tokens == 0)
 		rst->score = 0;
 	else
@@ -1133,7 +1111,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 			break;
 		if (record_num < MIN_read_N)
 			continue;
-		if (temp_rst.tid == 9606 || temp_rst.tid == 63221 || temp_rst.tid == 741158) {
+		if (temp_rst.seq[0] != '*' && (temp_rst.tid == 9606 || temp_rst.tid == 63221 || temp_rst.tid == 741158)) {
 			fprintf(buff_->meta_analysis_output_tmpfile, "%s", temp_rst.seq);
 		}
 		free(temp_rst.seq);
@@ -1341,50 +1319,58 @@ int cmp_MetaRST(const void *a,const void *b) {
 	else if (((MetaRST*)a)->rate < ((MetaRST*)b)->rate) return 1;
 	else return 0;
 }
-void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id, int flag, uint64_t max_snap_shot_len, char **human_snapshot, uint64_t *human_snapshot_n)
+void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id, int flag, uint64_t max_snapshot_len, char **human_snapshot, uint64_t *human_snapshot_n)
 {
-	*human_snapshot = xmalloc(max_snap_shot_len + 1);
-	memset(*human_snapshot, 0, max_snap_shot_len + 1);
-
 	if (input_n == 0) {
+		if (DEBUG) fprintf(stderr, "input_n == 0 !\n");
 		*output_n = 0;
 		*human_snapshot_n = 0;
 		return;
 	}
 
 	void *buff = find_and_init_buff_for_thread_mutex(thread_id, idx, -1);
+	if (DEBUG) fprintf(stderr, "before meta_analysis_core\n");
 	meta_analysis_core(idx, input, input_n, output, output_n, buff, flag);
+	if (DEBUG) fprintf(stderr, "after meta_analysis_core\n");
 
+	if (DEBUG) fprintf(stderr, "first char ascii in output: %d\n", (int)(*output)[0]);
 	char *cursor = *output;
 	if (cursor[0] == '\n') { // 第一行：快照.
-		strncpy(*human_snapshot, "", max_snap_shot_len);
+		if (DEBUG) fprintf(stderr, "no human base");
+		*human_snapshot = NULL;
+		*human_snapshot_n = 0;
 		cursor += 1;
 	}
 	else {
 		char *rst_line = strtok(cursor, "\n");
-		// if (DEBUG) fprintf(stderr, "parse human_base: %s\n", rst_line);
-		strncpy(*human_snapshot, rst_line, max_snap_shot_len);
-		// if (DEBUG) fprintf(stderr, "      human_base: %s\n", *human_snapshot);
-		*human_snapshot_n = strlen(*human_snapshot);
+		uint64_t human_base_num = strlen(rst_line);
+		if (DEBUG) fprintf(stderr, "found human base, num: %ld\n", human_base_num);
+		*human_snapshot_n = MIN(human_base_num, max_snapshot_len);
+		if (DEBUG) fprintf(stderr, "output human snapshot num: %ld\n", *human_snapshot_n);
+		size_t malloc_byte_num = *human_snapshot_n + 1;
+		if (DEBUG) fprintf(stderr, "before malloc human_snapshot, max_snapshot_len: %lu, going to malloc %lu bytes\n", max_snapshot_len, malloc_byte_num);
+		*human_snapshot = xmalloc(malloc_byte_num);
+		if (DEBUG) fprintf(stderr, "after malloc human_snapshot, memory address at %p, malloced %lu bytes\n", *human_snapshot, malloc_byte_num);
+		memcpy(*human_snapshot, rst_line, *human_snapshot_n);
+		(*human_snapshot)[*human_snapshot_n] = '\0';
+		if (DEBUG) fprintf(stderr, "copied human base num: %ld\n", *human_snapshot_n);
 		cursor += strlen(rst_line) + 1;
-		// cursor += strlen(*human_snapshot) + 1;
 	}
 
-	if (DEBUG) fprintf(stderr, "total human base num: %ld\n", cursor - *output - 1);
-	if (DEBUG) fprintf(stderr, "original meta_analysis file (item part):\n%s\n", cursor);
+	if (DEBUG) fprintf(stderr, "\n[original meta_analysis file (item part)]\n%s\n", cursor);
 
 	kvec_t(MetaRST) results;
 	kv_init(results);
 	float no_match_rate = 0;
+	if (DEBUG) fprintf(stderr, "[parse lines]\n");
 	while(1) { // 其他行：转换格式
 		char *rst_line = strtok(cursor, "\n");
 		if (rst_line == NULL) break;
-		if (DEBUG) fprintf(stderr, "parse line: %s\n", rst_line);
+		if (DEBUG) fprintf(stderr, "%s\n", rst_line);
 		cursor += strlen(rst_line) + 1;
 
 		MetaRST rst;
 		sscanf(rst_line, "%[^\t]\t%[^\t]\t%[^\t]\t%f", rst.type, rst.species, rst.tech, &(rst.rate));
-		// if (DEBUG) fprintf(stderr, "      line: %s\t%s\t%s\t%f\n", rst.type, rst.species, rst.tech, rst.rate);
 		if (strcmp("no_match", rst.type) == 0) {
 			no_match_rate += rst.rate;
 		}
@@ -1392,7 +1378,7 @@ void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint
 			kv_push(MetaRST, results, rst);
 		}
 	}
-	if (DEBUG) fprintf(stderr, "After sort:\n");
+	if (DEBUG) fprintf(stderr, "[After sort]\n");
 	if (no_match_rate > 0.95) {
 		sprintf(*output, "no_match\tnull|null\tnull\t0\n");
 		if (DEBUG) fprintf(stderr, "%s", "no_match\tnull|null\tnull\t0\n");

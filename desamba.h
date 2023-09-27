@@ -36,11 +36,12 @@ void read_classify(void *idx, char *input, uint64_t input_n, char **output, uint
  * @param output_n length of output string
  * @param thread_id a unique thread_id indicating which thread calls this function
  * @param flag META_USE_READ_NUM表示使用各节点数据条数进行统计，META_USE_BASE_NUM表示使用各节点数据总碱基数进行统计
- * @param human_snapshot Pointer to a wild pointer, memory will be allocated inside function，人类基因快照，需要调用者释放内存
  * @param max_snap_shot_len 指定human_snapshot最大碱基数，程序会尽可能填充指定的碱基数量
+ * @param human_snapshot Pointer to a wild pointer, memory will be allocated inside function，人类基因快照，需要调用者释放内存，若没找到人类的话，则是NULL
+ * @param human_snapshot_n human_snapshot中字符串长度
 */
 #define META_USE_READ_NUM 0
 #define META_USE_BASE_NUM 1
-void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id, int flag, uint64_t max_snap_shot_len, char **human_snapshot, uint64_t *human_snapshot_n);
+void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id, int flag, uint64_t max_snapshot_len, char **human_snapshot, uint64_t *human_snapshot_n);
 
 #endif

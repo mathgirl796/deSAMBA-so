@@ -1042,6 +1042,8 @@ void read_classify_core(void *idx, char *input, uint64_t input_n, char **output,
 {
 	RM_buffer *buff_ = buff;
 
+	fprintf(stderr, "input head: %100.100s\n", input);
+
 	// 把输入的fastq字符串或是fastq文件地址统统转换成 FILE* 变量，并且套成gzFile
 	FILE *fp = NULL;
 	if (input_n == -1)
@@ -1059,6 +1061,7 @@ void read_classify_core(void *idx, char *input, uint64_t input_n, char **output,
 
 	// 调用deSAMBA执行分类运算
 	buff_->classify_share_data._fp = ks_init(gzfp);
+	rewind(buff_->read_classify_output_tmpfile);
 	kt_pipeline(PIPELINE_T_NUM, classify_pipeline, &(buff_->classify_share_data), STEP_NUM);
 
 	// 把结果输出到文件
@@ -1075,6 +1078,9 @@ void read_classify_core(void *idx, char *input, uint64_t input_n, char **output,
 	{
 		fclose(fp);
 	}
+
+	fprintf(stderr, "sam head: %100.100s\nsam length: %d\n", *output, *output_n);
+
 }
 
 void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, void *buff, int flag)
@@ -1088,7 +1094,7 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 	memset(buff_->sort, 0, ((DA_IDX *)idx)->max_tid * sizeof(COUNT_SORT));
 
 	// 把输入的格式转换为deSAMBA需要的格式
-	rewind(buff_->meta_analysis_input_tmpfile);
+	buff_->meta_analysis_input_tmpfile = freopen(NULL, "w", buff_->meta_analysis_input_tmpfile); // for fwrite
 	fwrite(input, 1, input_n, buff_->meta_analysis_input_tmpfile);
 	buff_->meta_analysis_input_tmpfile = freopen(NULL, "r", buff_->meta_analysis_input_tmpfile); // for getline
 	skip_sam_head(buff_->meta_analysis_input_tmpfile, buff_->getOneSAM_buff);
@@ -1098,8 +1104,12 @@ void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output,
 	if (DEBUG)
 		fprintf(stderr, "begin read sam\n");
 	rewind(buff_->meta_analysis_dump_tmpfile);
+	// buff_->meta_analysis_dump_tmpfile = freopen(NULL, "w", buff_->meta_analysis_dump_tmpfile);
+	ftruncate(fileno(buff_->meta_analysis_dump_tmpfile), 0);
 
 	rewind(buff_->meta_analysis_output_tmpfile); // 收集人类序列
+	// buff_->meta_analysis_output_tmpfile = freopen(NULL, "w", buff_->meta_analysis_output_tmpfile);
+	ftruncate(fileno(buff_->meta_analysis_output_tmpfile), 0);
 
 	while (1)
 	{

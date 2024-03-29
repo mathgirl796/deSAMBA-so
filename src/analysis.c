@@ -1230,6 +1230,64 @@ typedef struct{
 	uint64_t 		total_mapQ;
 }CLY_NODE;
 
+
+// 2024.3.29需求：按照网信格式打印desamba的结果
+int ANA_PRINT_USE_LIST = 0;
+static void ana_meta_loop_fprint(FILE * file, TAXONOMY_rank * taxonomyTree, CLY_NODE *list, uint32_t node_ID, CN_CHILD *child_list, int level, uint64_t total_weight, bool is_base)
+{
+	CLY_NODE *node = list + node_ID;
+	if (node->weight == 0) return; // 剪枝
+	float rate =  (float)node->weight/total_weight;
+	// if (DEBUG) {
+	// 	for (int i = 0; i < level; i ++) fprintf(stderr, "  ");
+	// }
+	// if (DEBUG) fprintf(stderr, "hello ana_meta_loop_fprint: %d\t%s\t%ld/%ld\n", node_ID, taxonomyTree[node_ID].name, node->weight, total_weight);
+	if(node->child_list_begin != 0)
+	{
+		uint32_t child = node->child_list_begin;
+		while(1)
+		{
+			ana_meta_loop_fprint(file, taxonomyTree, list, child_list[child].tid, child_list, level + 1, total_weight, is_base);
+			if(child_list[child].next == 0)
+				break;
+			else
+				child = child_list[child].next;
+		}
+	}
+	else // 叶节点
+	{
+		char species_type[20] = {0};
+		uint32_t leaf_ID = node_ID;
+		if (leaf_ID == 0 || leaf_ID == 1) { // root or CLY_FAIL
+			strcpy(species_type, "no_match");
+		}
+		else {
+			while (node_ID != MAX_uint32_t) {
+				if (node_ID == 9606) {
+					strcpy(species_type, "human");
+					break;
+				}
+				else if (node_ID == 33208 || node_ID == 33090) {
+					strcpy(species_type, "animal_and_plant");
+					break;
+				}
+				else {
+					node_ID = taxonomyTree[node_ID].p_tid;
+				}
+			}
+			if (strlen(species_type) == 0)
+			{
+				strcpy(species_type, "microbe");
+			}
+		}
+		fprintf(file, "%s\t%d|%s\tnull\t%f\n", species_type, leaf_ID, taxonomyTree[leaf_ID].rank, rate);
+		if (DEBUG) {
+			for (int i = 0; i < level; i ++) fprintf(stderr, "  ");
+			fprintf(stderr, "DEBUG: %s\t%d|%s\tnull\t%f\n", species_type, leaf_ID, taxonomyTree[leaf_ID].rank, rate);
+		} 
+	}
+}
+
 static void ana_meta_loop_print(TAXONOMY_rank * taxonomyTree, CLY_NODE *list, uint32_t node_ID, CN_CHILD *child_list, int level, uint64_t total_read_number, bool is_base)
 {
 	CLY_NODE *node = list + node_ID;
@@ -1446,7 +1504,10 @@ static void ana_meta(char * rst_file_name, char * tax_file_name)
 	}
 	//out put
 	printf("Data:\n");
-	ana_meta_loop_print(taxonomyTree, node_table, 1, child_list, 0, total_read_number, false);
+	if (ANA_PRINT_USE_LIST == 1)
+		ana_meta_loop_fprint(stdout, taxonomyTree, node_table, 1, child_list, 0, total_read_number, false);
+	else
+		ana_meta_loop_print(taxonomyTree, node_table, 1, child_list, 0, total_read_number, false);
 	//printf("</Data>\n");
 	//number
 	printf("total_read_number :%d\t",total_read_number);
@@ -1595,7 +1656,10 @@ static void ana_meta_base(char * rst_file_name, char * tax_file_name)
 	}
 	//out put
 	printf("Analysis based on base number:\n");
-	ana_meta_loop_print(taxonomyTree, node_table, 1, child_list, 0, total_base_num, false);
+	if (ANA_PRINT_USE_LIST == 1)
+		ana_meta_loop_fprint(stdout, taxonomyTree, node_table, 1, child_list, 0, total_base_num, false);
+	else
+		ana_meta_loop_print(taxonomyTree, node_table, 1, child_list, 0, total_base_num, false);
 	//printf("</Data>\n");
 	//number
 	printf("total_mapped_base_number :%ld\n",total_base_num);
@@ -1723,7 +1787,10 @@ static void ana_meta_base_M2(char * rst_file_name, char * tax_file_name)
 	}
 	//out put
 	printf("Analysis based on base number:\n");
-	ana_meta_loop_print(taxonomyTree, node_table, 1, child_list, 0, total_base_num, true);
+	if (ANA_PRINT_USE_LIST == 1)
+		ana_meta_loop_fprint(stdout, taxonomyTree, node_table, 1, child_list, 0, total_base_num, true);
+	else
+		ana_meta_loop_print(taxonomyTree, node_table, 1, child_list, 0, total_base_num, true);
 	//printf("</Data>\n");
 	//number
 	printf("total_mapped_base_number :%ld\n",total_base_num);
@@ -2639,6 +2706,7 @@ static int cmp_usage()
 //you need to first dump files first, than compare
 int simDataTest(int argc, char *argv[])
 {
+	if (0 == strcmp(argv[argc - 1], "print_list")) {ANA_PRINT_USE_LIST = 1; fprintf(stderr, "ANA_PRINT_USE_LIST = 1\n");} 
 	if		(argc <= 1)						  			{cmp_usage();}
 	else if	(0 == strcmp(argv[1], "ana_meta"))			{ana_meta_des(	argv[2], argv[3]);}
 	else if	(0 == strcmp(argv[1], "ana_meta_base"))		{ana_meta_des_base(	argv[2], argv[3]);}

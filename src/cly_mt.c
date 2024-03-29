@@ -1042,7 +1042,7 @@ void read_classify_core(void *idx, char *input, uint64_t input_n, char **output,
 {
 	RM_buffer *buff_ = buff;
 
-	fprintf(stderr, "input head: %100.100s\n", input);
+	fprintf(stderr, "read_classify_core - input_head: %100.100s\n", input);
 
 	// 把输入的fastq字符串或是fastq文件地址统统转换成 FILE* 变量，并且套成gzFile
 	FILE *fp = NULL;
@@ -1052,20 +1052,22 @@ void read_classify_core(void *idx, char *input, uint64_t input_n, char **output,
 	}
 	else
 	{
-		fp = buff_->read_classify_input_tmpfile;
-		rewind(fp);
-		fprintf(fp, "%s\n", input);
+		fp = tmpfile();
+		fprintf(stderr, "read_classify_core - create tmpfile at 0x%p\n", fp);
+		err_fwrite(input, 1, input_n, fp);
+		fprintf(stderr, "read_classify_core - ftell - input_n = %ld\n", ftell(fp));
 		rewind(fp);
 	}
 	gzFile gzfp = gzdopen(fileno(fp), "r");
+	buff_->classify_share_data._fp = ks_init(gzfp);
 
 	// 调用deSAMBA执行分类运算
-	buff_->classify_share_data._fp = ks_init(gzfp);
-	rewind(buff_->read_classify_output_tmpfile);
+	rewind(buff_->read_classify_output_tmpfile); // 初始化输出缓冲文件
 	kt_pipeline(PIPELINE_T_NUM, classify_pipeline, &(buff_->classify_share_data), STEP_NUM);
 
 	// 把结果输出到文件
 	*output_n = ftell(buff_->read_classify_output_tmpfile);
+	fprintf(stderr, "read_classify_core - ftell - output_n = %ld\n", *output_n);
 	*output = xmalloc(*output_n + 1);
 	memset(*output, 0, *output_n + 1);
 	rewind(buff_->read_classify_output_tmpfile);
@@ -1074,13 +1076,8 @@ void read_classify_core(void *idx, char *input, uint64_t input_n, char **output,
 	// 释放必要的内存和文件
 	ks_destroy(buff_->classify_share_data._fp);
 	gzclose(gzfp);
-	if (input_n == -1)
-	{
-		fclose(fp);
-	}
-
-	fprintf(stderr, "sam head: %100.100s\nsam length: %d\n", *output, *output_n);
-
+	fclose(fp);
+	fprintf(stderr, "sam head: %100.100s\nsam length: %ld\n", *output, *output_n);
 }
 
 void meta_analysis_core(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, void *buff, int flag)
@@ -1332,21 +1329,21 @@ int cmp_MetaRST(const void *a,const void *b) {
 void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint64_t *output_n, int thread_id, int flag, uint64_t max_snapshot_len, char **human_snapshot, uint64_t *human_snapshot_n)
 {
 	if (input_n == 0) {
-		if (DEBUG) fprintf(stderr, "input_n == 0 !\n");
+		if (DEBUG) fprintf(stderr, "meta_analysis: input_n == 0 !\n");
 		*output_n = 0;
 		*human_snapshot_n = 0;
 		return;
 	}
 
 	void *buff = find_and_init_buff_for_thread_mutex(thread_id, idx, -1);
-	if (DEBUG) fprintf(stderr, "before meta_analysis_core\n");
+	if (DEBUG) fprintf(stderr, "meta_analysis: before meta_analysis_core\n");
 	meta_analysis_core(idx, input, input_n, output, output_n, buff, flag);
-	if (DEBUG) fprintf(stderr, "after meta_analysis_core\n");
+	if (DEBUG) fprintf(stderr, "meta_analysis: after meta_analysis_core\n");
 
-	if (DEBUG) fprintf(stderr, "first char ascii in output: %d\n", (int)(*output)[0]);
+	if (DEBUG) fprintf(stderr, "meta_analysis: first char ascii in output: %d\n", (int)(*output)[0]);
 	char *cursor = *output;
 	if (cursor[0] == '\n') { // 第一行：快照.
-		if (DEBUG) fprintf(stderr, "no human base");
+		if (DEBUG) fprintf(stderr, "meta_analysis: no human base");
 		*human_snapshot = NULL;
 		*human_snapshot_n = 0;
 		cursor += 1;
@@ -1354,16 +1351,16 @@ void meta_analysis(void *idx, char *input, uint64_t input_n, char **output, uint
 	else {
 		char *rst_line = strtok(cursor, "\n");
 		uint64_t human_base_num = strlen(rst_line);
-		if (DEBUG) fprintf(stderr, "found human base, num: %ld\n", human_base_num);
+		if (DEBUG) fprintf(stderr, "meta_analysis: found human base, num: %ld\n", human_base_num);
 		*human_snapshot_n = MIN(human_base_num, max_snapshot_len);
-		if (DEBUG) fprintf(stderr, "output human snapshot num: %ld\n", *human_snapshot_n);
+		if (DEBUG) fprintf(stderr, "meta_analysis: output human snapshot num: %ld\n", *human_snapshot_n);
 		size_t malloc_byte_num = *human_snapshot_n + 1;
-		if (DEBUG) fprintf(stderr, "before malloc human_snapshot, max_snapshot_len: %lu, going to malloc %lu bytes\n", max_snapshot_len, malloc_byte_num);
+		if (DEBUG) fprintf(stderr, "meta_analysis: before malloc human_snapshot, max_snapshot_len: %lu, going to malloc %lu bytes\n", max_snapshot_len, malloc_byte_num);
 		*human_snapshot = xmalloc(malloc_byte_num);
-		if (DEBUG) fprintf(stderr, "after malloc human_snapshot, memory address at %p, malloced %lu bytes\n", *human_snapshot, malloc_byte_num);
+		if (DEBUG) fprintf(stderr, "meta_analysis: after malloc human_snapshot, memory address at %p, malloced %lu bytes\n", *human_snapshot, malloc_byte_num);
 		memcpy(*human_snapshot, rst_line, *human_snapshot_n);
 		(*human_snapshot)[*human_snapshot_n] = '\0';
-		if (DEBUG) fprintf(stderr, "copied human base num: %ld\n", *human_snapshot_n);
+		if (DEBUG) fprintf(stderr, "meta_analysis: copied human base num: %ld\n", *human_snapshot_n);
 		cursor += strlen(rst_line) + 1;
 	}
 
